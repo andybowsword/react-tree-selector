@@ -2,42 +2,52 @@
 
 A simple, minimalistic React component for displaying hierarchical data (a tree) with multi-selection capabilities using checkboxes. Built with shadcn/ui components.
 
-preview: [react-tree-multi-selector.vercel.app](https://react-tree-multi-selector.vercel.app/)
+**Preview:** [react-tree-multi-selector.vercel.app](https://react-tree-multi-selector.vercel.app/)
 
-## Important Note
+## Selection Behavior (`includeChildren` Prop)
 
-Please be aware that the `selectedIds` array (returned via the `onChange` callback) will only contain the ID of the highest-level selected node within any given branch of the tree.
+The component offers two modes for reporting selected IDs via the `onChange` callback, controlled by the `includeChildren` prop:
 
-- If you select a parent node, only the parent's id is added to the `selectedIds` list.
-- Any ids belonging to its descendants (children, grandchildren, etc.) are automatically **excluded** from the list, even if they were selected previously.
+- **`includeChildren={false}` (Default):**
+
+  - The `selectedIds` array will **only** contain the ID of the **highest-level selected node** within any given branch.
+  - If you select a parent node, only the parent's `id` is returned. Descendant `id`s are excluded.
+  - This provides a concise list representing the root of each selected branch.
+
+- **`includeChildren={true}`:**
+  - The `selectedIds` array will include the ID of the selected node **plus the IDs of all its descendants**.
+  - If you select a parent node, its `id` and the `id`s of all its children, grandchildren, etc., are returned.
+  - This provides an exhaustive list of all individual nodes covered by the selection.
 
 ## Features
 
 - Displays tree data recursively.
 - Allows expanding and collapsing parent nodes.
 - Supports multi-selection with checkboxes.
-- Handles parent/child selection logic:
-  - Selecting a parent node selects it.
-  - Descendants of a selected node are visually indicated but cannot be individually selected/deselected.
-  - Checkboxes show an indeterminate state if a node is not selected but has selected descendants.
-- Provides callbacks for selection changes.
+- Handles parent/child selection logic internally.
+- Checkboxes show an indeterminate state if a node is not selected but has selected descendants.
+- Provides callbacks (`onChange`) for selection changes.
+- Configurable selection reporting (`includeChildren` prop).
 - Automatically expands parent nodes of initially selected items.
 
 ## Installation
 
-Install shadcn/ui using the following command:
+- **Initialize shadcn/ui (if you haven't already):**
 
-```bash
-npx shadcn@latest init
-```
+  ```bash
+  npx shadcn-ui@latest init
+  ```
 
-Add the required components from shadcn to your project:
+- **Add required shadcn/ui components:**
 
-```bash
-npx shadcn@latest add button checkbox
-```
+  ```bash
+  npx shadcn-ui@latest add button checkbox # (or ensure these exist)
+  ```
 
-copy the component code from `src/components/ui/tree-multi-selector.tsx` into your project.
+  _(Note: `utils` is needed for the `cn` function)_
+
+- **Copy the Component Code:**
+  Copy the `TreeMultiSelector` component code (and its associated helper functions/types) from `src/components/ui/tree-multi-selector.tsx` into your project, likely placing it in a similar path within your `components/ui` directory. Ensure the import paths within the component file match your project structure (e.g., for `@/lib/utils`, `@/components/ui/button`, etc.).
 
 ## Data Structure
 
@@ -53,59 +63,99 @@ type TreeNode = {
 
 ## Component Props
 
-| Prop                 | Type                              | Description                                                              | Default     |
-| :------------------- | :-------------------------------- | :----------------------------------------------------------------------- | :---------- |
-| `data`               | `TreeNode[]`                      | **Required.** The array of root nodes for the tree.                      | `undefined` |
-| `initialSelectedIds` | `string[]`                        | Optional. An array of node IDs that should be selected initially.        | `[]`        |
-| `onChange`           | `(selectedIds: string[]) => void` | Optional. Callback function triggered when the selection changes.        | `undefined` |
-| `className`          | `string`                          | Optional. Additional CSS classes to apply to the root container element. | `undefined` |
+| Prop                 | Type                              | Default     | Description                                                                                                                                  |
+| :------------------- | :-------------------------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data`               | `TreeNode[]`                      | `undefined` | **Required.** The array of root nodes for the tree.                                                                                          |
+| `className`          | `string`                          | `undefined` | Optional. Additional CSS classes to apply to the root container element.                                                                     |
+| `initialSelectedIds` | `string[]`                        | `[]`        | Optional. An array of node IDs that should be selected initially. Behavior respects the `includeChildren` prop during initialization.        |
+| `onChange`           | `(selectedIds: string[]) => void` | `undefined` | Optional. Callback function triggered when the selection changes. The output format depends on the `includeChildren` prop.                   |
+| `includeChildren`    | `boolean`                         | `true`      | Optional. If `true`, `onChange` returns selected node IDs plus all their descendant IDs. If `false`, returns only the top-most selected IDs. |
 
-## Basic Usage
+## Basic Usage (Demo Example)
+
+This example demonstrates using the `TreeMultiSelector` with sample data and displaying the selected IDs.
 
 ```jsx
-import React, { useState } from 'react';
-import { TreeMultiSelector, type TreeNode } from '@/components/ui/tree-multi-selector';
+"use client";
 
+import React, { useState } from 'react';
+import {
+  type TreeNode,
+  TreeMultiSelector,
+} from "@/components/ui/tree-multi-selector";
+
+// Sample Data
 const treeData: TreeNode[] = [
   {
-    id: '1',
-    label: 'Root 1',
+    id: "fruits",
+    label: "Fruits",
     children: [
-      { id: '1-1', label: 'Child 1.1' },
+      { id: "apple", label: "Apple" },
+      { id: "banana", label: "Banana" },
       {
-        id: '1-2',
-        label: 'Child 1.2',
-        children: [{ id: '1-2-1', label: 'Grandchild 1.2.1' }],
+        id: "citrus",
+        label: "Citrus",
+        children: [
+          { id: "orange", label: "Orange" },
+          { id: "lemon", label: "Lemon" },
+        ],
       },
     ],
   },
   {
-    id: '2',
-    label: 'Root 2',
+    id: "vegetables",
+    label: "Vegetables",
+    children: [
+      { id: "carrot", label: "Carrot" },
+      { id: "broccoli", label: "Broccoli" },
+    ],
   },
 ];
 
+// Initial selection example
+const initialSelection = ["apple", "lemon", "carrot"];
+
 export function TreeMultiSelectorDemo() {
-  const [selected, setSelected] = useState<string[]>(['1-1']); // Example initial selection
+  const [selectedNodes, setSelectedNodes] = useState<string[]>(initialSelection);
+
 
   const handleSelectionChange = (newSelectedIds: string[]) => {
-    console.log('Selected IDs:', newSelectedIds);
-    setSelected(newSelectedIds);
+    console.log(`Selected IDs (includeChildren=${shouldIncludeChildren}):`, newSelectedIds);
+    setSelectedNodes(newSelectedIds);
   };
 
   return (
-    <div>
-      <h2>Select Items</h2>
-      <TreeMultiSelector
-        data={treeData}
-        initialSelectedIds={selected}
-        onChange={handleSelectionChange}
-        className="max-w-sm"
-      />
-      {/* Display selected items or use the 'selected' state elsewhere */}
-      <p>Currently selected: {selected.join(', ') || 'None'}</p>
+    <div className="flex flex-col md:flex-row gap-8 p-4">
+      {/* Tree Selector */}
+      <div className="w-full md:w-1/2 lg:w-1/3">
+        <h2 className="text-xl font-semibold mb-4">Component Demo</h2>
+        <TreeMultiSelector
+          data={treeData}
+          initialSelectedIds={selectedNodes}
+          onChange={handleSelectionChange}
+          className="border rounded-md p-4 bg-background"
+        />
+      </div>
+
+      {/* Display Selected IDs */}
+      <div className="w-full md:w-1/2 lg:w-2/3 mt-8 md:mt-0">
+        <h2 className="text-xl font-semibold mb-4">Selected Node IDs</h2>
+        <div className="p-4 border rounded-md bg-muted/50 min-h-[100px]">
+          {selectedNodes.length > 0 ? (
+            <ul className="list-disc list-inside space-y-1">
+              {selectedNodes.sort().map((id) => ( // Sort for consistent display
+                <li key={id}><code>{id}</code></li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground italic">No nodes selected.</p>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground mt-2">
+          Selection mode: <code>includeChildren={shouldIncludeChildren.toString()}</code>
+        </p>
+      </div>
     </div>
   );
 }
-
 ```

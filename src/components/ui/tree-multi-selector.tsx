@@ -38,7 +38,7 @@ function getAllDescendantIds(node: TreeNode): string[] {
 function hasSelectedDescendant(
   node: TreeNode,
   selectedIds: Set<string>,
-  ancestorSelected: boolean = false // Tracks if an ancestor is selected
+  ancestorSelected: boolean = false
 ): boolean {
   if (!node.children) {
     return false;
@@ -115,6 +115,38 @@ function findAncestorIds(
   }
 
   return ancestorIds;
+}
+
+function getInitialSelectedIds(
+  data: TreeNode[],
+  initialSelectedIds?: string[],
+  includeChildren?: boolean
+): Set<string> {
+  const initialSet = new Set(initialSelectedIds);
+  const nodesToProcess = [...data];
+  const nodesMap = new Map<string, TreeNode>();
+  while (nodesToProcess.length > 0) {
+    const node = nodesToProcess.pop();
+    if (!node) continue;
+    nodesMap.set(node.id, node);
+    if (node.children) nodesToProcess.push(...node.children);
+  }
+
+  const finalInitialSet = new Set(initialSet);
+  for (const id of initialSet) {
+    const node = nodesMap.get(id);
+    if (node) {
+      const descendants = getAllDescendantIds(node);
+
+      descendants.forEach((descId) =>
+        includeChildren
+          ? finalInitialSet.add(descId)
+          : finalInitialSet.delete(descId)
+      );
+    }
+  }
+
+  return finalInitialSet;
 }
 
 interface TreeNodeItemProps {
@@ -238,10 +270,9 @@ function TreeNodeItem({
   );
 }
 
-TreeNodeItem.displayName = "TreeNodeItem";
-
 interface TreeMultiSelectorProps {
   data: TreeNode[];
+  includeChildren?: boolean;
   initialSelectedIds?: string[];
   onChange?: (selectedIds: string[]) => void;
   className?: string;
@@ -249,30 +280,13 @@ interface TreeMultiSelectorProps {
 
 function TreeMultiSelector({
   data,
+  includeChildren = true,
   initialSelectedIds = [],
   onChange,
   className,
 }: TreeMultiSelectorProps) {
   const [selectedIds, setSelectedIds] = React.useState(() => {
-    // Ensure no descendants are selected if a parent is
-    const cleanedIds = new Set(initialSelectedIds);
-    const allNodesMap = new Map<string, TreeNode>();
-    const queue = [...data];
-    while (queue.length > 0) {
-      const node = queue.shift();
-      if (!node) continue;
-      allNodesMap.set(node.id, node);
-      if (node.children) queue.push(...node.children);
-    }
-
-    for (const id of initialSelectedIds) {
-      const node = allNodesMap.get(id);
-      if (node) {
-        const descendantIds = getAllDescendantIds(node);
-        descendantIds.forEach((descId) => cleanedIds.delete(descId));
-      }
-    }
-    return cleanedIds;
+    return getInitialSelectedIds(data, initialSelectedIds, includeChildren);
   });
 
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => {
@@ -285,37 +299,59 @@ function TreeMultiSelector({
 
   const handleToggleSelected = React.useCallback(
     (node: TreeNode, isChecked: boolean) => {
-      let finalSelectedIds: Set<string> | null = null;
+      let finalSelectedIds: Set<string> | null = null; // To store the result for onChange
 
       setSelectedIds((prevSelectedIds) => {
         const newSelectedIds = new Set(prevSelectedIds);
         const descendantIds = getAllDescendantIds(node);
 
         if (isChecked) {
-          // Select the node
+          // Select the node itself
           newSelectedIds.add(node.id);
 
-          // Unselect and disable all descendants
-          descendantIds.forEach((id) => newSelectedIds.delete(id));
+          if (includeChildren) {
+            // Also select all descendants
+            descendantIds.forEach((id) => newSelectedIds.add(id));
+          } else {
+            // Ensure no descendants are selected (original behavior)
+            descendantIds.forEach((id) => newSelectedIds.delete(id));
+            // Also, check if any ancestor is now selected and remove this node if so
+            // This case is less likely due to the disabled state, but good for robustness
+            const ancestors = findAncestorIds(new Set([node.id]), data);
+            let ancestorSelected = false;
+            for (const ancestorId of ancestors) {
+              if (newSelectedIds.has(ancestorId)) {
+                ancestorSelected = true;
+                break;
+              }
+            }
+            if (ancestorSelected) {
+              newSelectedIds.delete(node.id);
+            }
+          }
         } else {
-          // Unselect the node
+          // Unselect the node itself
           newSelectedIds.delete(node.id);
 
-          // We don't automatically select children when unchecking a parent.
-          // Descendants become potentially selectable again if no other ancestor is selected.
+          if (includeChildren) {
+            // Also unselect all descendants (they were selected as a group)
+            descendantIds.forEach((id) => newSelectedIds.delete(id));
+          }
+          // If includeChildren is false, we only unselect the parent.
+          // Children might still be selected individually.
         }
 
-        finalSelectedIds = newSelectedIds;
-
+        finalSelectedIds = newSelectedIds; // Store the result
         return newSelectedIds;
       });
 
-      // Trigger onChange callback outside of setSelectedIds state update
-      if (onChange && finalSelectedIds) {
-        onChange?.(Array.from(finalSelectedIds));
+      // Trigger onChange callback AFTER state update completes
+      // Use the stored finalSelectedIds which reflects the change
+      if (onChange && finalSelectedIds !== null) {
+        onChange(Array.from(finalSelectedIds));
       }
     },
-    [onChange]
+    [data, includeChildren, onChange]
   );
 
   const handleToggleExpanded = React.useCallback((nodeId: string) => {
@@ -329,6 +365,26 @@ function TreeMultiSelector({
       return newExpandedIds;
     });
   }, []);
+
+  React.useEffect(() => {
+    let updatedSelectedIds: Set<string> | null = null;
+
+    setSelectedIds(() => {
+      const finalInitialSet = getInitialSelectedIds(
+        data,
+        initialSelectedIds,
+        includeChildren
+      );
+
+      updatedSelectedIds = finalInitialSet;
+
+      return finalInitialSet;
+    });
+
+    if (updatedSelectedIds) {
+      onChange?.(Array.from(updatedSelectedIds));
+    }
+  }, [data, includeChildren, initialSelectedIds, onChange]);
 
   return (
     <div className={cn("w-full rounded-md border p-4", className)}>

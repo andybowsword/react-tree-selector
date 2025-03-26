@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
-import { useState } from "react";
 
 import {
   type TreeNode,
   TreeMultiSelector,
 } from "@/components/ui/tree-multi-selector";
+
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // --- Sample Data for the Tree ---
 const treeData: TreeNode[] = [
@@ -54,14 +56,20 @@ const treeData: TreeNode[] = [
   },
 ];
 
-const initSelection = ["apple", "lemon", "carrot"];
+const initSelection = ["apple", "lemon", "carrot", "grapefruit"];
 
 export function TreeMultiSelectorDemo() {
+  const [includeChildren, setIncludeChildren] = React.useState(false);
+
   // State to hold the selected node IDs from the tree
-  const [selectedNodes, setSelectedNodes] = useState<string[]>(
+  const [selectedNodes, setSelectedNodes] = React.useState<string[]>(
     // Initialize with pre-selected nested nodes
     initSelection
   );
+
+  const handleIncludeChildrenChange = () => {
+    setIncludeChildren((prevState) => !prevState);
+  };
 
   const handleSelectionChange = (newSelectedIds: string[]) => {
     console.log("Showcase Page - Selected IDs:", newSelectedIds);
@@ -73,11 +81,22 @@ export function TreeMultiSelectorDemo() {
       {/* Tree Selector Column */}
       <div className="w-full md:w-1/2 lg:w-1/3">
         <h2 className="text-xl font-semibold mb-4">Component Demo</h2>
+        <div className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mb-2">
+          <Checkbox
+            id="include-children"
+            checked={includeChildren}
+            onCheckedChange={handleIncludeChildrenChange}
+          />
+          <div className="leading-1">
+            <Label htmlFor="include-children">Include Children</Label>
+          </div>
+        </div>
         <TreeMultiSelector
           data={treeData}
-          initialSelectedIds={selectedNodes} // Pass initial selection
-          onChange={handleSelectionChange} // Handle selection changes
-          className="border rounded-md p-4 bg-background" // Add some default styling
+          includeChildren={includeChildren}
+          initialSelectedIds={selectedNodes}
+          onChange={handleSelectionChange}
+          className="border rounded-md p-4 bg-background"
         />
       </div>
 
