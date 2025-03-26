@@ -8,7 +8,7 @@ import { Github, Moon, Sun } from "lucide-react";
 
 import { TreeMultiSelectorDemo } from "./_components/tree-multi-selector-demo";
 
-const GITHUB_REPO_URL = "https://github.com/riadh-ais/tree-multi-selector";
+const GITHUB_REPO_URL = "https://github.com/riad-azz/react-tree-multi-selector";
 
 export default function ShowcasePage() {
   const { theme, setTheme } = useTheme();
