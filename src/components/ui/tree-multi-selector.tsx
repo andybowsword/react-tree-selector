@@ -285,10 +285,10 @@ function TreeMultiSelector({
 
   const handleToggleSelected = React.useCallback(
     (node: TreeNode, isChecked: boolean) => {
-      let newSelectedIds: Set<string> = new Set();
+      let finalSelectedIds: Set<string> | null = null;
 
       setSelectedIds((prevSelectedIds) => {
-        newSelectedIds = new Set(prevSelectedIds);
+        const newSelectedIds = new Set(prevSelectedIds);
         const descendantIds = getAllDescendantIds(node);
 
         if (isChecked) {
@@ -305,12 +305,14 @@ function TreeMultiSelector({
           // Descendants become potentially selectable again if no other ancestor is selected.
         }
 
+        finalSelectedIds = newSelectedIds;
+
         return newSelectedIds;
       });
 
       // Trigger onChange callback outside of setSelectedIds state update
-      if (onChange && newSelectedIds) {
-        onChange?.(Array.from(newSelectedIds));
+      if (onChange && finalSelectedIds) {
+        onChange?.(Array.from(finalSelectedIds));
       }
     },
     [onChange]
