@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tree Multi Selector",
+  title: "React - Tree Selector",
   description: "Customizable tree multi selector for Next.js",
 };
 
