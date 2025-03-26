@@ -59,7 +59,7 @@ const treeData: TreeNode[] = [
 const initSelection = ["apple", "lemon", "carrot", "grapefruit"];
 
 export function TreeMultiSelectorDemo() {
-  const [includeChildren, setIncludeChildren] = React.useState(false);
+  const [includeChildren, setIncludeChildren] = React.useState(true);
 
   // State to hold the selected node IDs from the tree
   const [selectedNodes, setSelectedNodes] = React.useState<string[]>(
