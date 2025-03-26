@@ -136,6 +136,7 @@ function TreeNodeItem({
   onToggleExpanded,
   isAncestorSelected,
 }: TreeNodeItemProps) {
+  const isDisabled = isAncestorSelected;
   const isSelected = selectedIds.has(node.id);
   const isExpanded = expandedIds.has(node.id);
   const hasChildren = node.children && node.children.length > 0;
@@ -193,17 +194,17 @@ function TreeNodeItem({
             id={`node-${node.id}`}
             checked={checkedState}
             onCheckedChange={handleCheckedChange}
-            disabled={isAncestorSelected}
+            disabled={isDisabled}
             aria-label={node.label} // More specific label
           />
           <label
             htmlFor={`node-${node.id}`}
             className={cn(
               "text-sm font-medium leading-none",
-              isAncestorSelected
+              isDisabled
                 ? "cursor-not-allowed text-muted-foreground"
                 : "cursor-pointer",
-              isSelected && !isAncestorSelected && "font-semibold" // Optional: highlight selected
+              isSelected && !isDisabled && "font-semibold" // Optional: highlight selected
             )}
           >
             {node.label}
