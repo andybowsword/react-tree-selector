@@ -1,4 +1,4 @@
-# TreeMultiSelector built with shadcn/ui
+# React TreeMultiSelector built with shadcn/ui
 
 A simple, minimalistic React component for displaying hierarchical data (a tree) with multi-selection capabilities using checkboxes. Built with shadcn/ui components.
 
