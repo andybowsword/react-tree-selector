@@ -2,10 +2,7 @@
 
 import React from "react";
 
-import {
-  type TreeNode,
-  TreeMultiSelector,
-} from "@/components/ui/tree-multi-selector";
+import { type TreeNode, TreeSelector } from "@/components/ui/tree-selector";
 
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -58,7 +55,7 @@ const treeData: TreeNode[] = [
 
 const initSelection = ["apple", "lemon", "carrot", "grapefruit"];
 
-export function TreeMultiSelectorDemo() {
+export function TreeSelectorDemo() {
   const [includeChildren, setIncludeChildren] = React.useState(true);
 
   // State to hold the selected node IDs from the tree
@@ -91,7 +88,7 @@ export function TreeMultiSelectorDemo() {
             <Label htmlFor="include-children">Include Children</Label>
           </div>
         </div>
-        <TreeMultiSelector
+        <TreeSelector
           data={treeData}
           includeChildren={includeChildren}
           initialSelectedIds={selectedNodes}

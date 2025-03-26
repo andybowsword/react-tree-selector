@@ -270,7 +270,7 @@ function TreeNodeItem({
   );
 }
 
-interface TreeMultiSelectorProps {
+interface TreeSelectorProps {
   data: TreeNode[];
   includeChildren?: boolean;
   initialSelectedIds?: string[];
@@ -278,13 +278,13 @@ interface TreeMultiSelectorProps {
   className?: string;
 }
 
-function TreeMultiSelector({
+function TreeSelector({
   data,
   includeChildren = true,
   initialSelectedIds = [],
   onChange,
   className,
-}: TreeMultiSelectorProps) {
+}: TreeSelectorProps) {
   const [selectedIds, setSelectedIds] = React.useState(() => {
     return getInitialSelectedIds(data, initialSelectedIds, includeChildren);
   });
@@ -404,4 +404,4 @@ function TreeMultiSelector({
   );
 }
 
-export { TreeMultiSelector, type TreeNode };
+export { TreeSelector, type TreeNode };

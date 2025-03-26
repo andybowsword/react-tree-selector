@@ -6,18 +6,18 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Github, Moon, Sun } from "lucide-react";
 
-import { TreeMultiSelectorDemo } from "./_components/tree-multi-selector-demo";
+import { TreeSelectorDemo } from "./_components/tree-selector-demo";
 
-const GITHUB_REPO_URL = "https://github.com/riad-azz/react-tree-multi-selector";
+const GITHUB_REPO_URL = "https://github.com/riad-azz/react-tree-selector";
 
-export default function ShowcasePage() {
+export default function HomePage() {
   const { theme, setTheme } = useTheme();
 
   return (
     <div className="container mx-auto p-4 min-h-screen">
       {/* --- Header --- */}
       <header className="flex items-center justify-between pb-4 mb-8 border-b">
-        <h1 className="text-2xl font-bold">TreeMultiSelector Showcase</h1>
+        <h1 className="text-2xl font-bold">TreeSelector Showcase</h1>
         <div className="flex items-center space-x-2">
           {/* GitHub Link Button */}
           <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">
@@ -42,7 +42,7 @@ export default function ShowcasePage() {
 
       {/* --- Main Content --- */}
       <main>
-        <TreeMultiSelectorDemo />
+        <TreeSelectorDemo />
       </main>
     </div>
   );

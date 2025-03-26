@@ -1,8 +1,8 @@
-# React TreeMultiSelector built with shadcn/ui
+# React TreeSelector built with shadcn/ui
 
 A simple, minimalistic React component for displaying hierarchical data (a tree) with multi-selection capabilities using checkboxes. Built with shadcn/ui components.
 
-**Preview:** [react-tree-multi-selector.vercel.app](https://react-tree-multi-selector.vercel.app/)
+**Preview:** [react-tree-selector.vercel.app](https://react-tree-selector.vercel.app/)
 
 ## Selection Behavior (`includeChildren` Prop)
 
@@ -48,7 +48,7 @@ The component offers two modes for reporting selected IDs via the `onChange` cal
   _(Note: `utils` is needed for the `cn` function)_
 
 - **Copy the Component Code:**
-  Copy the `TreeMultiSelector` component code (and its associated helper functions/types) from `src/components/ui/tree-multi-selector.tsx` into your project, likely placing it in a similar path within your `components/ui` directory. Ensure the import paths within the component file match your project structure (e.g., for `@/lib/utils`, `@/components/ui/button`, etc.).
+  Copy the `TreeSelector` component code (and its associated helper functions/types) from `src/components/ui/tree-selector.tsx` into your project, likely placing it in a similar path within your `components/ui` directory. Ensure the import paths within the component file match your project structure (e.g., for `@/lib/utils`, `@/components/ui/button`, etc.).
 
 ## Data Structure
 
@@ -74,7 +74,7 @@ type TreeNode = {
 
 ## Basic Usage (Demo Example)
 
-This example demonstrates using the `TreeMultiSelector` with sample data and displaying the selected IDs.
+This example demonstrates using the `TreeSelector` with sample data and displaying the selected IDs.
 
 ```jsx
 "use client";
@@ -82,8 +82,8 @@ This example demonstrates using the `TreeMultiSelector` with sample data and dis
 import React, { useState } from 'react';
 import {
   type TreeNode,
-  TreeMultiSelector,
-} from "@/components/ui/tree-multi-selector";
+  TreeSelector,
+} from "@/components/ui/tree-selector";
 
 // Sample Data
 const treeData: TreeNode[] = [
@@ -116,7 +116,7 @@ const treeData: TreeNode[] = [
 // Initial selection example
 const initialSelection = ["apple", "lemon", "carrot"];
 
-export function TreeMultiSelectorDemo() {
+export function TreeSelectorDemo() {
   const [selectedNodes, setSelectedNodes] = useState<string[]>(initialSelection);
 
 
@@ -130,7 +130,7 @@ export function TreeMultiSelectorDemo() {
       {/* Tree Selector */}
       <div className="w-full md:w-1/2 lg:w-1/3">
         <h2 className="text-xl font-semibold mb-4">Component Demo</h2>
-        <TreeMultiSelector
+        <TreeSelector
           data={treeData}
           initialSelectedIds={selectedNodes}
           onChange={handleSelectionChange}
