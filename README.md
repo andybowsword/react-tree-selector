@@ -2,6 +2,8 @@
 
 A simple, minimalistic React component for displaying hierarchical data (a tree) with multi-selection capabilities using checkboxes. Built with shadcn/ui components.
 
+preview: [react-tree-multi-selector.vercel.app](https://react-tree-multi-selector.vercel.app/)
+
 ## Important Note
 
 Please be aware that the `selectedIds` array (returned via the `onChange` callback) will only contain the ID of the highest-level selected node within any given branch of the tree.
