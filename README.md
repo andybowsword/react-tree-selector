@@ -8,16 +8,17 @@ A simple, minimalistic React component for displaying hierarchical data (a tree)
 
 The component offers two modes for reporting selected IDs via the `onChange` callback, controlled by the `includeChildren` prop:
 
-- **`includeChildren={false}` (Default):**
+- **`includeChildren={true}` (Default):**
+
+  - The `selectedIds` array will include the ID of the selected node **plus the IDs of all its descendants**.
+  - If you select a parent node, its `id` and the `id`s of all its children, grandchildren, etc., are returned.
+  - This provides an exhaustive list of all individual nodes covered by the selection.
+
+- **`includeChildren={false}`:**
 
   - The `selectedIds` array will **only** contain the ID of the **highest-level selected node** within any given branch.
   - If you select a parent node, only the parent's `id` is returned. Descendant `id`s are excluded.
   - This provides a concise list representing the root of each selected branch.
-
-- **`includeChildren={true}`:**
-  - The `selectedIds` array will include the ID of the selected node **plus the IDs of all its descendants**.
-  - If you select a parent node, its `id` and the `id`s of all its children, grandchildren, etc., are returned.
-  - This provides an exhaustive list of all individual nodes covered by the selection.
 
 ## Features
 
