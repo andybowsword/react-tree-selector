@@ -51,7 +51,7 @@ _(Internal display logic, like disabling descendants when a parent is selected i
 2. **Add required shadcn/ui components:**
 
    ```bash
-   npx shadcn-ui@latest add button checkbox utils
+   npx shadcn-ui@latest add button checkbox
    ```
 
 3. **Copy the Component Code:**
