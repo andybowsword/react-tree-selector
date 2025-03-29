@@ -53,7 +53,7 @@ const treeData: TreeNode[] = [
   },
 ];
 
-const initSelection = ["apple", "lemon", "carrot", "grapefruit", "citrus"];
+const initSelection = ["apple", "lemon", "carrot", "grapefruit"];
 
 export function TreeSelectorDemo() {
   // State to control whether to include children or not
