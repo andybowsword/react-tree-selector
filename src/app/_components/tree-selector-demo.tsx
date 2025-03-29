@@ -53,10 +53,11 @@ const treeData: TreeNode[] = [
   },
 ];
 
-const initSelection = ["apple", "lemon", "carrot", "grapefruit"];
+const initSelection = ["apple", "lemon", "carrot", "grapefruit", "citrus"];
 
 export function TreeSelectorDemo() {
-  const [includeChildren, setIncludeChildren] = React.useState(true);
+  // State to control whether to include children or not
+  const [topLevelOnly, setTopLevelOnly] = React.useState(false);
 
   // State to hold the selected node IDs from the tree
   const [selectedNodes, setSelectedNodes] = React.useState<string[]>(
@@ -64,8 +65,8 @@ export function TreeSelectorDemo() {
     initSelection
   );
 
-  const handleIncludeChildrenChange = () => {
-    setIncludeChildren((prevState) => !prevState);
+  const handleTopLevelOnlyChange = () => {
+    setTopLevelOnly((prevState) => !prevState);
   };
 
   const handleSelectionChange = (newSelectedIds: string[]) => {
@@ -80,18 +81,18 @@ export function TreeSelectorDemo() {
         <h2 className="text-xl font-semibold mb-4">Component Demo</h2>
         <div className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mb-2">
           <Checkbox
-            id="include-children"
-            checked={includeChildren}
-            onCheckedChange={handleIncludeChildrenChange}
+            id="top-level-only"
+            checked={topLevelOnly}
+            onCheckedChange={handleTopLevelOnlyChange}
           />
           <div className="leading-1">
-            <Label htmlFor="include-children">Include Children</Label>
+            <Label htmlFor="top-level-only">Select Top Level Only</Label>
           </div>
         </div>
         <TreeSelector
-          data={treeData}
-          includeChildren={includeChildren}
-          initialSelectedIds={selectedNodes}
+          treeData={treeData}
+          value={selectedNodes}
+          topLevelOnly={topLevelOnly}
           onChange={handleSelectionChange}
           className="border rounded-md p-4 bg-background"
         />

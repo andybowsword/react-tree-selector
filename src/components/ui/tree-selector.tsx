@@ -117,41 +117,94 @@ function findAncestorIds(
   return ancestorIds;
 }
 
-function getInitialSelectedIds(
+/**
+ * Processes an array of selected IDs based on the tree structure and selection mode.
+ * Handles initial selection cleanup for topLevelOnly mode and includes duplicate ID checks in dev mode.
+ * @param data The root nodes of the tree.
+ * @param selectedIds The array of IDs to process (e.g., from the 'value' prop).
+ * @param topLevelOnly If true, processes the IDs to ensure only the highest-level selected node in any branch is included. If false, includes selected nodes and their descendants.
+ * @returns A Set containing the processed selected node IDs.
+ */
+function getSelectedIdsFromData(
   data: TreeNode[],
-  initialSelectedIds?: string[],
-  includeChildren?: boolean
+  selectedIds: string[] = [],
+  topLevelOnly: boolean
 ): Set<string> {
-  const initialSet = new Set(initialSelectedIds);
-  const nodesToProcess = [...data];
-  const nodesMap = new Map<string, TreeNode>();
-  while (nodesToProcess.length > 0) {
-    const node = nodesToProcess.pop();
-    if (!node) continue;
-    nodesMap.set(node.id, node);
-    if (node.children) nodesToProcess.push(...node.children);
+  const initialSet = new Set(selectedIds);
+  if (initialSet.size === 0) {
+    return initialSet; // Return early if nothing is selected initially
   }
 
-  const finalInitialSet = new Set(initialSet);
-  for (const id of initialSet) {
-    const node = nodesMap.get(id);
-    if (node) {
-      const descendants = getAllDescendantIds(node);
+  const nodesToProcess = [...data];
+  const nodesMap = new Map<string, TreeNode>();
+  if (process.env.NODE_ENV !== "production") {
+    // --- Development: Build Nodes Map and Check for Duplicates ---
+    const existingIds = new Set<string>();
+    while (nodesToProcess.length > 0) {
+      const node = nodesToProcess.pop();
+      if (!node) continue;
+      if (existingIds.has(node.id)) {
+        console.warn(
+          `[TreeSelector] Duplicate TreeNode ID detected: "${node.id}". This can lead to unexpected behavior.`
+        );
+      }
+      existingIds.add(node.id);
+      nodesMap.set(node.id, node);
+      if (node.children) nodesToProcess.push(...node.children);
+    }
+  } else {
+    // Production: Build map without duplicate check
+    while (nodesToProcess.length > 0) {
+      const node = nodesToProcess.pop();
+      if (!node) continue;
+      nodesMap.set(node.id, node);
+      if (node.children) nodesToProcess.push(...node.children);
+    }
+  }
+  // --- End Map Building ---
 
-      descendants.forEach((descId) =>
-        includeChildren
-          ? finalInitialSet.add(descId)
-          : finalInitialSet.delete(descId)
-      );
+  const finalSelectedSet = new Set<string>();
+
+  if (topLevelOnly) {
+    // This requires two steps:
+    // 1. Identify potential candidates: nodes from the initialSet.
+    // 2. Filter out candidates that are descendants of *other* candidates in the initialSet.
+
+    for (const id of initialSet) {
+      // Check if this id is a descendant of *another* id also present in the initial set
+      const ancestors = findAncestorIds(new Set([id]), data);
+      let isDescendantOfSelectedAncestor = false;
+      for (const ancestorId of ancestors) {
+        if (initialSet.has(ancestorId)) {
+          // Found an ancestor that was *also* in the initial selection
+          isDescendantOfSelectedAncestor = true;
+          break;
+        }
+      }
+
+      // Only keep this ID if it's NOT a descendant of another initially selected node
+      if (!isDescendantOfSelectedAncestor) {
+        finalSelectedSet.add(id);
+      }
+    }
+  } else {
+    for (const id of initialSet) {
+      finalSelectedSet.add(id); // Add the node itself
+      const node = nodesMap.get(id);
+      if (node) {
+        const descendants = getAllDescendantIds(node);
+        descendants.forEach((descId) => finalSelectedSet.add(descId)); // Add all descendants
+      }
     }
   }
 
-  return finalInitialSet;
+  return finalSelectedSet;
 }
 
 interface TreeNodeItemProps {
   node: TreeNode;
   level: number;
+  className?: string;
   selectedIds: Set<string>;
   expandedIds: Set<string>;
   onToggleSelected: (node: TreeNode, isChecked: boolean) => void;
@@ -159,199 +212,207 @@ interface TreeNodeItemProps {
   isAncestorSelected: boolean;
 }
 
-function TreeNodeItem({
-  node,
-  level,
-  selectedIds,
-  expandedIds,
-  onToggleSelected,
-  onToggleExpanded,
-  isAncestorSelected,
-}: TreeNodeItemProps) {
-  const isDisabled = isAncestorSelected;
-  const isSelected = selectedIds.has(node.id);
-  const isExpanded = expandedIds.has(node.id);
-  const hasChildren = node.children && node.children.length > 0;
+const TreeNodeItem = React.memo(
+  ({
+    node,
+    level,
+    selectedIds,
+    expandedIds,
+    onToggleSelected,
+    onToggleExpanded,
+    isAncestorSelected,
+    className,
+  }: TreeNodeItemProps) => {
+    const isDisabled = isAncestorSelected;
+    const isSelected = selectedIds.has(node.id);
+    const isExpanded = expandedIds.has(node.id);
+    const hasChildren = node.children && node.children.length > 0;
 
-  // Determine checkbox state: checked, unchecked, or indeterminate
-  let checkedState: boolean | "indeterminate" = false;
-  if (isSelected) {
-    checkedState = true;
-  } else if (
-    hasSelectedDescendant(node, selectedIds, false) ||
-    isAncestorSelected
-  ) {
-    // Check descendants for indeterminate state ONLY if the node itself isn't selected
-    checkedState = "indeterminate";
-  }
+    const checkedState = React.useMemo(() => {
+      if (isSelected) return true;
 
-  const handleCheckedChange = (isChecked: boolean | "indeterminate") => {
-    // The Checkbox component's onCheckedChange provides the *new* state (true/false)
-    // It doesn't pass 'indeterminate', it resolves to false when clicked from indeterminate
-    onToggleSelected(node, !!isChecked);
-  };
+      if (
+        hasSelectedDescendant(node, selectedIds, false) ||
+        isAncestorSelected
+      ) {
+        return "indeterminate";
+      }
 
-  return (
-    <div className="flex flex-col">
-      <div className="flex items-center space-x-2 py-1">
-        {/* Indentation */}
-        <div style={{ paddingLeft: `${level * 1.5}rem` }} aria-hidden="true" />
+      return false;
+    }, [isSelected, node, selectedIds, isAncestorSelected]);
 
-        {/* Collapse/Expand Button */}
-        {hasChildren ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => onToggleExpanded(node.id)}
-            aria-label={
-              isExpanded ? `Collapse ${node.label}` : `Expand ${node.label}`
-            }
-            aria-expanded={isExpanded}
-          >
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </Button>
-        ) : (
-          // Placeholder for alignment if no children
-          <div className="h-6 w-6" aria-hidden="true" />
-        )}
+    const handleCheckedChange = React.useCallback(
+      (isChecked: boolean | "indeterminate") => {
+        onToggleSelected(node, !!isChecked);
+      },
+      [onToggleSelected, node]
+    );
 
-        {/* Checkbox and Label */}
-        <div className="flex items-center space-x-2 flex-1">
-          <Checkbox
-            id={`node-${node.id}`}
-            checked={checkedState}
-            onCheckedChange={handleCheckedChange}
-            disabled={isDisabled}
-            aria-label={node.label} // More specific label
-          />
-          <label
-            htmlFor={`node-${node.id}`}
-            className={cn(
-              "text-sm font-medium leading-none",
-              isDisabled
-                ? "cursor-not-allowed text-muted-foreground"
-                : "cursor-pointer",
-              isSelected && !isDisabled && "font-semibold" // Optional: highlight selected
-            )}
-          >
-            {node.label}
-          </label>
-        </div>
-      </div>
+    const handleExpandToggle = React.useCallback(() => {
+      onToggleExpanded(node.id);
+    }, [onToggleExpanded, node.id]);
 
-      {/* Render Children */}
-      {hasChildren && isExpanded && (
-        <div className="relative">
-          {/* Optional: Add subtle vertical line for structure */}
+    return (
+      <div
+        role="treeitem"
+        aria-level={level + 1}
+        aria-selected={isSelected}
+        aria-expanded={hasChildren ? isExpanded : undefined}
+        aria-disabled={isDisabled}
+        className={cn("flex flex-col", className)}
+      >
+        <div className="flex items-center space-x-2 py-1">
+          {/* Indentation */}
           <div
-            className="absolute left-0 top-0 bottom-0 w-px bg-muted"
-            style={{ marginLeft: `${level * 1.5 + 0.75}rem` }} // Adjust positioning
+            style={{ paddingLeft: `${level * 1.5}rem` }}
+            aria-hidden="true"
           />
-          {node.children?.map((child) => (
-            <TreeNodeItem
-              key={child.id}
-              node={child}
-              level={level + 1}
-              selectedIds={selectedIds}
-              expandedIds={expandedIds}
-              onToggleSelected={onToggleSelected}
-              onToggleExpanded={onToggleExpanded}
-              isAncestorSelected={isAncestorSelected || isSelected} // Pass down if current node is selected OR if an ancestor was already selected
+
+          {/* Collapse/Expand Button */}
+          {hasChildren ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={handleExpandToggle}
+              aria-label={
+                isExpanded ? `Collapse ${node.label}` : `Expand ${node.label}`
+              }
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </Button>
+          ) : (
+            // Placeholder for alignment if no children
+            <div className="h-6 w-6" aria-hidden="true" />
+          )}
+
+          {/* Checkbox and Label */}
+          <div className="flex items-center space-x-2 flex-1">
+            <Checkbox
+              id={`node-${node.id}`}
+              checked={checkedState}
+              onCheckedChange={handleCheckedChange}
+              disabled={isDisabled}
+              aria-label={node.label} // More specific label
+              aria-selected={isSelected}
+              aria-disabled={isDisabled}
             />
-          ))}
+            <label
+              htmlFor={`node-${node.id}`}
+              className={cn(
+                "text-sm font-medium leading-none",
+                isDisabled
+                  ? "cursor-not-allowed text-muted-foreground"
+                  : "cursor-pointer",
+                isSelected && !isDisabled && "font-semibold" // Optional: highlight selected
+              )}
+            >
+              {node.label}
+            </label>
+          </div>
         </div>
-      )}
-    </div>
-  );
-}
+
+        {/* Render Children */}
+        {hasChildren && isExpanded && (
+          <div className="relative">
+            {/* Optional: Add subtle vertical line for structure */}
+            <div
+              className="absolute left-0 top-0 bottom-0 w-px bg-muted"
+              style={{ marginLeft: `${level * 1.5 + 0.75}rem` }} // Adjust positioning
+            />
+            {node.children?.map((child) => (
+              <TreeNodeItem
+                key={child.id}
+                node={child}
+                level={level + 1}
+                selectedIds={selectedIds}
+                expandedIds={expandedIds}
+                onToggleSelected={onToggleSelected}
+                onToggleExpanded={onToggleExpanded}
+                isAncestorSelected={isAncestorSelected || isSelected} // Pass down if current node is selected OR if an ancestor was already selected
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+);
+TreeNodeItem.displayName = "TreeNodeItem";
 
 interface TreeSelectorProps {
-  data: TreeNode[];
-  includeChildren?: boolean;
-  initialSelectedIds?: string[];
-  onChange?: (selectedIds: string[]) => void;
+  treeData: TreeNode[];
+  topLevelOnly?: boolean;
+  value: string[];
+  onChange: (selectedIds: string[]) => void;
   className?: string;
 }
 
 function TreeSelector({
-  data,
-  includeChildren = true,
-  initialSelectedIds = [],
+  value,
+  treeData,
+  topLevelOnly = false,
   onChange,
   className,
 }: TreeSelectorProps) {
-  const [selectedIds, setSelectedIds] = React.useState(() => {
-    return getInitialSelectedIds(data, initialSelectedIds, includeChildren);
-  });
+  const isInitialMount = React.useRef(true);
+  const prevTopLevelOnlyRef = React.useRef(topLevelOnly);
+  const selectedIdsSet = React.useMemo(
+    () => getSelectedIdsFromData(treeData, value, topLevelOnly),
+    [treeData, value, topLevelOnly]
+  );
 
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => {
     // Calculate initial expanded state by finding ancestors of initially selected nodes
-    if (initialSelectedIds && initialSelectedIds.length > 0) {
-      return findAncestorIds(new Set(initialSelectedIds), data);
+    if (selectedIdsSet.size > 0) {
+      return findAncestorIds(selectedIdsSet, treeData);
     }
     return new Set<string>(); // Default to empty set if no initial selection
   });
 
-  const handleToggleSelected = React.useCallback(
-    (node: TreeNode, isChecked: boolean) => {
-      let finalSelectedIds: Set<string> | null = null; // To store the result for onChange
-
-      setSelectedIds((prevSelectedIds) => {
-        const newSelectedIds = new Set(prevSelectedIds);
-        const descendantIds = getAllDescendantIds(node);
-
-        if (isChecked) {
-          // Select the node itself
-          newSelectedIds.add(node.id);
-
-          if (includeChildren) {
-            // Also select all descendants
-            descendantIds.forEach((id) => newSelectedIds.add(id));
-          } else {
-            // Ensure no descendants are selected (original behavior)
-            descendantIds.forEach((id) => newSelectedIds.delete(id));
-            // Also, check if any ancestor is now selected and remove this node if so
-            // This case is less likely due to the disabled state, but good for robustness
-            const ancestors = findAncestorIds(new Set([node.id]), data);
-            let ancestorSelected = false;
-            for (const ancestorId of ancestors) {
-              if (newSelectedIds.has(ancestorId)) {
-                ancestorSelected = true;
-                break;
-              }
-            }
-            if (ancestorSelected) {
-              newSelectedIds.delete(node.id);
-            }
-          }
-        } else {
-          // Unselect the node itself
-          newSelectedIds.delete(node.id);
-
-          if (includeChildren) {
-            // Also unselect all descendants (they were selected as a group)
-            descendantIds.forEach((id) => newSelectedIds.delete(id));
-          }
-          // If includeChildren is false, we only unselect the parent.
-          // Children might still be selected individually.
-        }
-
-        finalSelectedIds = newSelectedIds; // Store the result
-        return newSelectedIds;
-      });
-
-      // Trigger onChange callback AFTER state update completes
-      // Use the stored finalSelectedIds which reflects the change
-      if (onChange && finalSelectedIds !== null) {
-        onChange(Array.from(finalSelectedIds));
+  const handleOnChange = React.useCallback(
+    (newSelectedIds: Set<string>) => {
+      if (onChange) {
+        onChange(Array.from(newSelectedIds));
       }
     },
-    [data, includeChildren, onChange]
+    [onChange]
+  );
+
+  const handleToggleSelected = React.useCallback(
+    (node: TreeNode, isChecked: boolean) => {
+      const newSelectedIds = new Set(selectedIdsSet);
+      const descendantIds = getAllDescendantIds(node);
+
+      if (isChecked) {
+        // Select the node itself
+        newSelectedIds.add(node.id);
+
+        if (topLevelOnly) {
+          // Ensure no descendants are selected
+          descendantIds.forEach((id) => newSelectedIds.delete(id));
+        } else {
+          // Select all descendants
+          descendantIds.forEach((id) => newSelectedIds.add(id));
+        }
+      } else {
+        // Unselect the node itself
+        newSelectedIds.delete(node.id);
+
+        // Also unselect all descendants
+        if (!topLevelOnly) {
+          // Only unselect descendants if we are *not* in topLevelOnly mode
+          descendantIds.forEach((id) => newSelectedIds.delete(id));
+        }
+      }
+
+      handleOnChange(newSelectedIds);
+    },
+    [handleOnChange, selectedIdsSet, topLevelOnly]
   );
 
   const handleToggleExpanded = React.useCallback((nodeId: string) => {
@@ -366,34 +427,32 @@ function TreeSelector({
     });
   }, []);
 
+  // Sync the controlled value with the selected node IDs
   React.useEffect(() => {
-    let updatedSelectedIds: Set<string> | null = null;
-
-    setSelectedIds(() => {
-      const finalInitialSet = getInitialSelectedIds(
-        data,
-        initialSelectedIds,
-        includeChildren
-      );
-
-      updatedSelectedIds = finalInitialSet;
-
-      return finalInitialSet;
-    });
-
-    if (updatedSelectedIds) {
-      onChange?.(Array.from(updatedSelectedIds));
+    if (isInitialMount.current) {
+      handleOnChange(selectedIdsSet);
+      isInitialMount.current = false;
     }
-  }, [data, includeChildren, initialSelectedIds, onChange]);
+  }, [selectedIdsSet, handleOnChange]);
+
+  // Sync the controlled value when topLevelOnly changes
+  React.useEffect(() => {
+    if (prevTopLevelOnlyRef.current !== topLevelOnly) {
+      prevTopLevelOnlyRef.current = topLevelOnly;
+      const selectedIds = getSelectedIdsFromData(treeData, value, topLevelOnly);
+
+      handleOnChange(selectedIds);
+    }
+  }, [treeData, topLevelOnly, value, handleOnChange]);
 
   return (
-    <div className={cn("w-full rounded-md border p-4", className)}>
-      {data.map((node) => (
+    <div role="tree" className={cn("w-full rounded-md border p-4", className)}>
+      {treeData.map((node) => (
         <TreeNodeItem
           key={node.id}
           node={node}
           level={0}
-          selectedIds={selectedIds}
+          selectedIds={selectedIdsSet}
           expandedIds={expandedIds}
           onToggleSelected={handleToggleSelected}
           onToggleExpanded={handleToggleExpanded}
