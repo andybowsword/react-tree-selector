@@ -66,38 +66,36 @@ function hasSelectedDescendant(
   return false;
 }
 
-/**
- * Recursively searches for ancestors of a set of target IDs in a tree.
- */
+// Recursive DFS function to find ancestors of a single targetId
+function searchForAncestors(
+  node: TreeNode,
+  targetId: string,
+  currentPath: string[] // IDs of ancestors leading to 'node'
+): string[] | null {
+  // Returns the ancestor path if target is found, otherwise null
+  if (node.id === targetId) {
+    return currentPath; // Found the target, return the path leading to it
+  }
+
+  if (node.children && node.children.length > 0) {
+    const newPath = [...currentPath, node.id]; // Add current node to path for children
+    for (const child of node.children) {
+      const result = searchForAncestors(child, targetId, newPath);
+      if (result !== null) {
+        return result; // Target found in this subtree, propagate the path up
+      }
+    }
+  }
+
+  return null; // Target not found in this node or its descendants
+}
+
+// Recursively searches for ancestors of a set of target IDs in a tree.
 function findAncestorIds(
   targetIds: Set<string>,
   nodes: TreeNode[]
 ): Set<string> {
   const ancestorIds = new Set<string>();
-
-  // Recursive DFS function to find ancestors of a single targetId
-  function searchForAncestors(
-    node: TreeNode,
-    targetId: string,
-    currentPath: string[] // IDs of ancestors leading to 'node'
-  ): string[] | null {
-    // Returns the ancestor path if target is found, otherwise null
-    if (node.id === targetId) {
-      return currentPath; // Found the target, return the path leading to it
-    }
-
-    if (node.children && node.children.length > 0) {
-      const newPath = [...currentPath, node.id]; // Add current node to path for children
-      for (const child of node.children) {
-        const result = searchForAncestors(child, targetId, newPath);
-        if (result !== null) {
-          return result; // Target found in this subtree, propagate the path up
-        }
-      }
-    }
-
-    return null; // Target not found in this node or its descendants
-  }
 
   // Iterate through each ID we need to find ancestors for
   for (const targetId of targetIds) {
@@ -117,14 +115,6 @@ function findAncestorIds(
   return ancestorIds;
 }
 
-/**
- * Processes an array of selected IDs based on the tree structure and selection mode.
- * Handles initial selection cleanup for topLevelOnly mode and includes duplicate ID checks in dev mode.
- * @param data The root nodes of the tree.
- * @param selectedIds The array of IDs to process (e.g., from the 'value' prop).
- * @param topLevelOnly If true, processes the IDs to ensure only the highest-level selected node in any branch is included. If false, includes selected nodes and their descendants.
- * @returns A Set containing the processed selected node IDs.
- */
 function getSelectedIdsFromData(
   data: TreeNode[],
   selectedIds: string[] = [],
@@ -132,44 +122,26 @@ function getSelectedIdsFromData(
 ): Set<string> {
   const initialSet = new Set(selectedIds);
   if (initialSet.size === 0) {
-    return initialSet; // Return early if nothing is selected initially
+    return initialSet;
   }
 
   const nodesToProcess = [...data];
   const nodesMap = new Map<string, TreeNode>();
-  if (process.env.NODE_ENV !== "production") {
-    // --- Development: Build Nodes Map and Check for Duplicates ---
-    const existingIds = new Set<string>();
-    while (nodesToProcess.length > 0) {
-      const node = nodesToProcess.pop();
-      if (!node) continue;
-      if (existingIds.has(node.id)) {
-        console.warn(
-          `[TreeSelector] Duplicate TreeNode ID detected: "${node.id}". This can lead to unexpected behavior.`
-        );
-      }
-      existingIds.add(node.id);
-      nodesMap.set(node.id, node);
-      if (node.children) nodesToProcess.push(...node.children);
-    }
-  } else {
-    // Production: Build map without duplicate check
-    while (nodesToProcess.length > 0) {
-      const node = nodesToProcess.pop();
-      if (!node) continue;
-      nodesMap.set(node.id, node);
-      if (node.children) nodesToProcess.push(...node.children);
+
+  while (nodesToProcess.length > 0) {
+    const node = nodesToProcess.pop();
+
+    if (!node) continue;
+
+    nodesMap.set(node.id, node);
+    if (node.children) {
+      nodesToProcess.push(...node.children);
     }
   }
-  // --- End Map Building ---
 
   const finalSelectedSet = new Set<string>();
 
   if (topLevelOnly) {
-    // This requires two steps:
-    // 1. Identify potential candidates: nodes from the initialSet.
-    // 2. Filter out candidates that are descendants of *other* candidates in the initialSet.
-
     for (const id of initialSet) {
       // Check if this id is a descendant of *another* id also present in the initial set
       const ancestors = findAncestorIds(new Set([id]), data);
@@ -181,7 +153,6 @@ function getSelectedIdsFromData(
           break;
         }
       }
-
       // Only keep this ID if it's NOT a descendant of another initially selected node
       if (!isDescendantOfSelectedAncestor) {
         finalSelectedSet.add(id);
@@ -189,11 +160,11 @@ function getSelectedIdsFromData(
     }
   } else {
     for (const id of initialSet) {
-      finalSelectedSet.add(id); // Add the node itself
+      finalSelectedSet.add(id);
       const node = nodesMap.get(id);
       if (node) {
         const descendants = getAllDescendantIds(node);
-        descendants.forEach((descId) => finalSelectedSet.add(descId)); // Add all descendants
+        descendants.forEach((descId) => finalSelectedSet.add(descId));
       }
     }
   }
@@ -205,6 +176,7 @@ interface TreeNodeItemProps {
   node: TreeNode;
   level: number;
   className?: string;
+  includeChildren?: boolean;
   selectedIds: Set<string>;
   expandedIds: Set<string>;
   onToggleSelected: (node: TreeNode, isChecked: boolean) => void;
@@ -218,18 +190,21 @@ const TreeNodeItem = React.memo(
     level,
     selectedIds,
     expandedIds,
+    includeChildren,
     onToggleSelected,
     onToggleExpanded,
     isAncestorSelected,
     className,
   }: TreeNodeItemProps) => {
-    const isDisabled = isAncestorSelected;
     const isSelected = selectedIds.has(node.id);
     const isExpanded = expandedIds.has(node.id);
+    const isDisabled = isAncestorSelected && includeChildren;
     const hasChildren = node.children && node.children.length > 0;
 
     const checkedState = React.useMemo(() => {
       if (isSelected) return true;
+
+      if (isAncestorSelected && !includeChildren) return false;
 
       if (
         hasSelectedDescendant(node, selectedIds, false) ||
@@ -239,7 +214,7 @@ const TreeNodeItem = React.memo(
       }
 
       return false;
-    }, [isSelected, node, selectedIds, isAncestorSelected]);
+    }, [isSelected, node, selectedIds, includeChildren, isAncestorSelected]);
 
     const handleCheckedChange = React.useCallback(
       (isChecked: boolean | "indeterminate") => {
@@ -331,9 +306,10 @@ const TreeNodeItem = React.memo(
                 level={level + 1}
                 selectedIds={selectedIds}
                 expandedIds={expandedIds}
+                includeChildren={includeChildren}
                 onToggleSelected={onToggleSelected}
                 onToggleExpanded={onToggleExpanded}
-                isAncestorSelected={isAncestorSelected || isSelected} // Pass down if current node is selected OR if an ancestor was already selected
+                isAncestorSelected={isSelected || isAncestorSelected} // Pass down if current node is selected OR if an ancestor was already selected
               />
             ))}
           </div>
@@ -346,7 +322,7 @@ TreeNodeItem.displayName = "TreeNodeItem";
 
 interface TreeSelectorProps {
   treeData: TreeNode[];
-  topLevelOnly?: boolean;
+  includeChildren?: boolean;
   value: string[];
   onChange: (selectedIds: string[]) => void;
   className?: string;
@@ -355,23 +331,18 @@ interface TreeSelectorProps {
 function TreeSelector({
   value,
   treeData,
-  topLevelOnly = false,
+  includeChildren = false,
   onChange,
   className,
 }: TreeSelectorProps) {
-  const isInitialMount = React.useRef(true);
-  const prevTopLevelOnlyRef = React.useRef(topLevelOnly);
-  const selectedIdsSet = React.useMemo(
-    () => getSelectedIdsFromData(treeData, value, topLevelOnly),
-    [treeData, value, topLevelOnly]
-  );
+  const prevIncludeChildrenRef = React.useRef(includeChildren);
+  const selectedIdsSet = React.useMemo(() => new Set<string>(value), [value]);
 
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => {
-    // Calculate initial expanded state by finding ancestors of initially selected nodes
     if (selectedIdsSet.size > 0) {
       return findAncestorIds(selectedIdsSet, treeData);
     }
-    return new Set<string>(); // Default to empty set if no initial selection
+    return new Set<string>();
   });
 
   const handleOnChange = React.useCallback(
@@ -385,14 +356,15 @@ function TreeSelector({
 
   const handleToggleSelected = React.useCallback(
     (node: TreeNode, isChecked: boolean) => {
-      const newSelectedIds = new Set(selectedIdsSet);
+      const newSelectedIds = new Set<string>(selectedIdsSet);
       const descendantIds = getAllDescendantIds(node);
 
       if (isChecked) {
         // Select the node itself
+
         newSelectedIds.add(node.id);
 
-        if (topLevelOnly) {
+        if (includeChildren) {
           // Ensure no descendants are selected
           descendantIds.forEach((id) => newSelectedIds.delete(id));
         } else {
@@ -404,7 +376,7 @@ function TreeSelector({
         newSelectedIds.delete(node.id);
 
         // Also unselect all descendants
-        if (!topLevelOnly) {
+        if (!includeChildren) {
           // Only unselect descendants if we are *not* in topLevelOnly mode
           descendantIds.forEach((id) => newSelectedIds.delete(id));
         }
@@ -412,7 +384,7 @@ function TreeSelector({
 
       handleOnChange(newSelectedIds);
     },
-    [handleOnChange, selectedIdsSet, topLevelOnly]
+    [handleOnChange, selectedIdsSet, includeChildren]
   );
 
   const handleToggleExpanded = React.useCallback((nodeId: string) => {
@@ -427,23 +399,19 @@ function TreeSelector({
     });
   }, []);
 
-  // Sync the controlled value with the selected node IDs
+  // Sync the controlled value when includeChildren changes
   React.useEffect(() => {
-    if (isInitialMount.current) {
-      handleOnChange(selectedIdsSet);
-      isInitialMount.current = false;
-    }
-  }, [selectedIdsSet, handleOnChange]);
-
-  // Sync the controlled value when topLevelOnly changes
-  React.useEffect(() => {
-    if (prevTopLevelOnlyRef.current !== topLevelOnly) {
-      prevTopLevelOnlyRef.current = topLevelOnly;
-      const selectedIds = getSelectedIdsFromData(treeData, value, topLevelOnly);
+    if (prevIncludeChildrenRef.current !== includeChildren) {
+      prevIncludeChildrenRef.current = includeChildren;
+      const selectedIds = getSelectedIdsFromData(
+        treeData,
+        value,
+        includeChildren
+      );
 
       handleOnChange(selectedIds);
     }
-  }, [treeData, topLevelOnly, value, handleOnChange]);
+  }, [value, treeData, includeChildren, handleOnChange]);
 
   return (
     <div role="tree" className={cn("w-full rounded-md border p-4", className)}>
@@ -452,8 +420,9 @@ function TreeSelector({
           key={node.id}
           node={node}
           level={0}
-          selectedIds={selectedIdsSet}
+          includeChildren={includeChildren}
           expandedIds={expandedIds}
+          selectedIds={selectedIdsSet}
           onToggleSelected={handleToggleSelected}
           onToggleExpanded={handleToggleExpanded}
           isAncestorSelected={false} // Root nodes have no selected ancestors

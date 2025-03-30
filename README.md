@@ -1,121 +1,67 @@
-# React TreeSelector built with shadcn/ui
+# React Tree Selector Component
 
-A flexible React component for displaying hierarchical data (tree) with multi-selection checkboxes. Built using shadcn/ui components and designed as a **controlled component** for selection state.
+A flexible and accessible React component for displaying hierarchical data (trees) and allowing users to select nodes via checkboxes. Built with **shadcn/ui**, **Tailwind CSS**, and **Lucide Icons**.
 
-**Preview:** [react-tree-multi-selector.vercel.app](https://react-tree-multi-selector.vercel.app/) _(Note: Preview might not reflect the latest controlled component pattern)_
+[![Made with React](https://img.shields.io/badge/React-18+-61DAFB?logo=react&logoColor=white&style=flat-square)](https://reactjs.org/)
+[![Styled with Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.x-38B2AC?logo=tailwind-css&logoColor=white&style=flat-square)](https://tailwindcss.com/)
+[![Built with shadcn/ui](https://img.shields.io/badge/shadcn/ui-latest-black?style=flat-square)](https://ui.shadcn.com/)
 
-## Key Features
+## Features
 
-- Displays tree data recursively.
-- Allows expanding and collapsing parent nodes.
-- **Controlled multi-selection:** Selection state is managed externally via `value` and `onChange` props.
-- **Two selection reporting modes:** Controlled by the `topLevelOnly` prop.
-- Handles parent/child selection logic internally based on the mode.
-- Checkboxes show an indeterminate state if a node is not selected but has selected descendants (respecting `topLevelOnly` logic).
-- Provides callbacks (`onChange`) for selection changes.
-- **Accessibility:** Includes ARIA roles (`tree`, `treeitem`) and attributes for improved screen reader support.
-- **Performance:** Optimized child item rendering using `React.memo`, `useCallback`, and `useMemo`.
-- **Developer Friendly:** Includes development-mode warnings for duplicate node IDs.
+- **Hierarchical Display:** Renders nested tree structures based on your data.
+- **Checkbox Selection:** Allows single and multiple node selection using checkboxes.
+- **Expand/Collapse:** Users can expand and collapse parent nodes to view or hide children.
+- **Controlled Component:** Selection state is managed externally via `value` and `onChange` props.
+- **Two Selection Modes (`includeChildren` prop):**
+  - **Cascade Selection (default):** Selecting a parent implicitly selects all its descendants. Unselecting a parent unselects all descendants. Checkboxes show an indeterminate state for partially selected subtrees.
+  - **Top-Level Selection:** Selecting a parent selects _only_ that parent. Descendants remain selectable individually _unless_ an ancestor is selected (then they become disabled).
+- **Accessibility:** Implements ARIA roles (`tree`, `treeitem`) and attributes (`aria-selected`, `aria-expanded`, `aria-disabled`, `aria-level`) for better screen reader support.
+- **Customizable:** Built with `shadcn/ui` and Tailwind CSS, allowing easy styling and theming.
+- **TypeScript Support:** Fully typed for better developer experience.
 
-## Important Note: Controlled Component
+## Prerequisites
 
-This component operates as a **controlled component** for its selection state. This means:
+This component assumes you have a React project set up with:
 
-1. You **must** provide the current selection state (an array of selected node IDs) via the `value` prop.
-2. You **must** provide an `onChange` callback function.
-3. When the user interacts with a checkbox, the component calculates the _new_ proposed selection state and calls `onChange` with this new array of IDs.
-4. Your parent component **must** handle the `onChange` callback, update its own state, and pass the updated state back into the `TreeSelector`'s `value` prop for the changes to be visually reflected.
+1. **Tailwind CSS:** Configured for styling.
+2. **shadcn/ui:** Initialized in your project (`npx shadcn-ui@latest init`).
+3. **Required shadcn/ui Components:** You need the `Button` and `Checkbox` components added to your project:
 
-## Selection Behavior (`topLevelOnly` Prop)
-
-The `onChange` callback provides selected node IDs based on the `topLevelOnly` prop:
-
-- **`topLevelOnly={false}` (Default):**
-  - When a node is selected, its ID **and the IDs of all its descendants** are included in the array passed to `onChange`.
-  - This provides an exhaustive list of all individual nodes covered by the selection.
-- **`topLevelOnly={true}`:**
-  - When a node is selected, **only its ID** is included in the array passed to `onChange`. Descendant IDs are excluded.
-  - If multiple nodes in a branch are selected (e.g., parent and child), `onChange` will only receive the ID of the **highest-level selected node** in that branch.
-  - This provides a concise list representing the root of each selected branch.
-
-_(Internal display logic, like disabling descendants when a parent is selected in `topLevelOnly=true` mode, is handled automatically)._
+   ```bash
+   npx shadcn-ui@latest add button
+   npx shadcn-ui@latest add checkbox
+   ```
 
 ## Installation
 
-1. **Initialize shadcn/ui (if you haven't already):**
+1. Copy the provided `TreeSelector.tsx` (or the file containing the code) into your components directory (e.g., `src/components/ui/tree-selector.tsx`).
+2. Ensure the import paths for `Button`, `Checkbox`, and `cn` match your project structure (e.g., `@/components/ui/button`, `@/lib/utils`).
+3. Export the component and necessary types from your component's index file if needed.
 
-   ```bash
-   npx shadcn-ui@latest init
-   ```
+## Usage
 
-2. **Add required shadcn/ui components:**
+Import the `TreeSelector` component and the `TreeNode` type. Provide your hierarchical data (`treeData`), the current selection state (`value`), and an `onChange` handler to update the selection.
 
-   ```bash
-   npx shadcn-ui@latest add button checkbox
-   ```
-
-3. **Copy the Component Code:**
-   Copy the `TreeSelector` component code (including helper functions and the `TreeNode` type) from `src/components/ui/tree-selector.tsx` (adjust path as needed) into your project, likely within your `components/ui` directory. Ensure internal import paths (`@/components/ui/...`, `@/lib/utils`) match your project structure.
-
-## Data Structure
-
-The component expects data in the following `TreeNode` format:
-
-```typescript
-type TreeNode = {
-  id: string; // Must be unique across the entire tree
-  label: string;
-  children?: TreeNode[];
-};
-```
-
-## Component Props
-
-| Prop           | Type                              | Default     | Description                                                                                                                                           |
-| :------------- | :-------------------------------- | :---------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `treeData`     | `TreeNode[]`                      | `undefined` | **Required.** The array of root nodes for the tree.                                                                                                   |
-| `value`        | `string[]`                        | `undefined` | **Required.** The controlled array of currently selected node IDs. Must be managed by the parent component.                                           |
-| `onChange`     | `(selectedIds: string[]) => void` | `undefined` | **Required.** Callback function triggered when selection changes. Receives the _new_ proposed array of selected IDs based on the `topLevelOnly` mode. |
-| `topLevelOnly` | `boolean`                         | `false`     | Optional. If `true`, `onChange` returns only the top-most selected ID per branch. If `false`, returns selected IDs plus all descendant IDs.           |
-| `className`    | `string`                          | `undefined` | Optional. Additional CSS classes to apply to the root container element.                                                                              |
-
-## Basic Usage (Controlled Component Example)
-
-```jsx
+```tsx
 "use client";
 
 import React from "react";
+import { TreeSelector, type TreeNode } from "@/components/ui/tree-selector";
 
-import { type TreeNode, TreeSelector } from "@/components/ui/tree-selector";
-
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-
-// --- Sample Data for the Tree ---
-const treeData: TreeNode[] = [
+// Sample Tree Data
+const sampleTreeData: TreeNode[] = [
   {
     id: "fruits",
     label: "Fruits",
     children: [
-      // Level 2
       { id: "apple", label: "Apple" },
       { id: "banana", label: "Banana" },
       {
         id: "citrus",
         label: "Citrus",
         children: [
-          // Level 3
           { id: "orange", label: "Orange" },
           { id: "lemon", label: "Lemon" },
-          {
-            id: "grapefruit",
-            label: "Grapefruit",
-            children: [
-              // Level 4
-              { id: "pink-grapefruit", label: "Pink Grapefruit" },
-              { id: "white-grapefruit", label: "White Grapefruit" },
-            ],
-          },
         ],
       },
     ],
@@ -124,88 +70,104 @@ const treeData: TreeNode[] = [
     id: "vegetables",
     label: "Vegetables",
     children: [
-      // Level 2
       { id: "carrot", label: "Carrot" },
       { id: "broccoli", label: "Broccoli" },
-      { id: "spinach", label: "Spinach" },
     ],
   },
-  // Node without children
-  {
-    id: "dairy",
-    label: "Dairy (No Children)",
-  },
+  { id: "uncategorized", label: "Uncategorized Item" },
 ];
 
-const initSelection = ["apple", "lemon", "carrot", "grapefruit", "citrus"];
-
-export function TreeSelectorDemo() {
-  // State to control whether to include children or not
-  const [topLevelOnly, setTopLevelOnly] = React.useState(false);
-
-  // State to hold the selected node IDs from the tree
-  const [selectedNodes, setSelectedNodes] = React.useState<string[]>(
-    // Initialize with pre-selected nested nodes
-    initSelection
-  );
-
-  const handleTopLevelOnlyChange = () => {
-    setTopLevelOnly((prevState) => !prevState);
-  };
+function MyTreePage() {
+  // State to manage selected node IDs
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([
+    "apple",
+    "orange",
+  ]);
+  // State to toggle selection behavior
+  const [includeChildrenMode, setIncludeChildrenMode] = React.useState(false);
 
   const handleSelectionChange = (newSelectedIds: string[]) => {
-    console.log("Showcase Page - Selected IDs:", newSelectedIds);
-    setSelectedNodes(newSelectedIds);
+    console.log("Selection changed:", newSelectedIds);
+    setSelectedIds(newSelectedIds);
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-8">
-      {/* Tree Selector Column */}
-      <div className="w-full md:w-1/2 lg:w-1/3">
-        <h2 className="text-xl font-semibold mb-4">Component Demo</h2>
-        <div className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mb-2">
-          <Checkbox
-            id="top-level-only"
-            checked={topLevelOnly}
-            onCheckedChange={handleTopLevelOnlyChange}
-          />
-          <div className="leading-1">
-            <Label htmlFor="top-level-only">Select Top Level Only</Label>
-          </div>
-        </div>
-        <TreeSelector
-          treeData={treeData}
-          value={selectedNodes}
-          topLevelOnly={topLevelOnly}
-          onChange={handleSelectionChange}
-          className="border rounded-md p-4 bg-background"
+    <div className="p-4 space-y-4">
+      <h2 className="text-xl font-semibold">Select Items</h2>
+
+      <div className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          id="includeChildrenToggle"
+          checked={includeChildrenMode}
+          onChange={(e) => setIncludeChildrenMode(e.target.checked)}
         />
+        <label htmlFor="includeChildrenToggle">
+          Enable "Top-Level Only" Selection (includeChildren=true)
+        </label>
       </div>
 
-      {/* Selected Items Display Column */}
-      <div className="w-full md:w-1/2 lg:w-2/3 mt-8 md:mt-0">
-        <h2 className="text-xl font-semibold mb-4">Selected Node IDs</h2>
-        <div className="p-4 border rounded-md bg-muted/50 min-h-[100px]">
-          {selectedNodes.length > 0 ? (
-            <ul className="list-disc list-inside space-y-1">
-              {Array.from(selectedNodes)
-                .sort()
-                .map(
-                  (
-                    id // Sort for consistent display
-                  ) => (
-                    <li key={id}>
-                      <code>{id}</code>
-                    </li>
-                  )
-                )}
-            </ul>
-          ) : (
-            <p className="text-muted-foreground italic">No nodes selected.</p>
-          )}
-        </div>
+      <TreeSelector
+        treeData={sampleTreeData}
+        value={selectedIds}
+        onChange={handleSelectionChange}
+        includeChildren={includeChildrenMode} // Control selection behavior
+        className="max-w-md" // Optional: Add custom styling
+      />
+
+      <div className="mt-4">
+        <h3 className="font-medium">Current Selection:</h3>
+        <pre className="text-sm bg-muted p-2 rounded">
+          {JSON.stringify(selectedIds, null, 2)}
+        </pre>
       </div>
     </div>
   );
 }
+
+export default MyTreePage;
 ```
+
+## API Reference
+
+### `<TreeSelector />` Props
+
+| Prop              | Type                              | Default     | Description                                                                                                                                                                                                                        |
+| :---------------- | :-------------------------------- | :---------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `treeData`        | `TreeNode[]`                      | `undefined` | **Required.** An array of `TreeNode` objects representing the root nodes of the tree.                                                                                                                                              |
+| `value`           | `string[]`                        | `undefined` | **Required.** An array of strings representing the IDs of the currently selected nodes. Controls the component's selection state.                                                                                                  |
+| `onChange`        | `(selectedIds: string[]) => void` | `undefined` | **Required.** Callback function invoked when the selection changes. Receives the new array of selected node IDs.                                                                                                                   |
+| `includeChildren` | `boolean`                         | `false`     | Controls the selection behavior (see [Selection Behavior](#selection-behavior) below). If `true`, selecting a parent only selects that node and disables descendants. If `false`, selecting a parent also selects all descendants. |
+| `className`       | `string`                          | `undefined` | Optional CSS classes to apply to the root `div` element of the component for custom styling.                                                                                                                                       |
+
+### `TreeNode` Type
+
+Each object in the `treeData` array (and their `children`) must conform to this structure:
+
+```typescript
+type TreeNode = {
+  id: string; // Must be unique across the entire tree
+  label: string; // Text displayed for the node
+  children?: TreeNode[]; // Optional array of child nodes
+};
+```
+
+## Selection Behavior (`includeChildren` prop)
+
+The `includeChildren` prop fundamentally changes how selection works:
+
+- **`includeChildren={false}` (Default - Cascade Selection):**
+
+  - Checking a parent node's checkbox selects the parent **and** all its descendants (recursively).
+  - Unchecking a parent node's checkbox unselects the parent **and** all its descendants.
+  - If some, but not all, descendants of a parent are selected (e.g., due to initial `value` or individual child interaction), the parent checkbox will show an **indeterminate** state.
+  - The `value`/`onChange` arrays will contain the IDs of _all_ implicitly or explicitly selected nodes.
+
+- **`includeChildren={true}` (Top-Level Selection):**
+  - Checking a parent node's checkbox selects **only** the parent node itself.
+  - Unchecking a parent node's checkbox unselects **only** the parent node.
+  - If a parent node is selected, its direct and indirect children become **disabled** and cannot be individually selected or unselected. Their checkboxes reflect the parent's selection state but are grayed out.
+  - If a parent node is _not_ selected, its children can be selected or unselected independently.
+  - The `value`/`onChange` arrays will only contain the IDs of the nodes that are _explicitly_ checked (no implicit descendant selection).
+
+**Note:** When the `includeChildren` prop changes dynamically, the component attempts to reconcile the `value` array according to the new mode.
